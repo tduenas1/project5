@@ -1,0 +1,143 @@
+---
+title: "STAT387 Homework 1"
+author: "Hung Dang"
+output: rmdformats::material
+---
+
+# Project 5
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(glmnet)
+library(class)
+library(e1071)
+library(boot)
+library(MASS)
+library(caTools)
+library(leaps)
+
+germancredit <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
+germancredit <- na.omit(germancredit)
+germancredit
+```
+
+**a) Perform an exploratory analysis of data**
+
+
+```{r}
+summary(germancredit)
+
+```
+
+
+The data set contains information about the credit information of 1000 people in Germany and whether they are defaulted on their credit or not.The data consists of 21 variables, most of which are categorical data including the response Default. The response Default falls into one of two categories, 1 means defaulted and 0 means not defaulted.
+The continuous variables are: duration, amount, installment, residence, age, cards, liable
+The categorical variables are: Default, checkingstatus1, history, purpose, savings, employ, status, others, property, otherplans, housing, job, tele, foreign.
+
+
+
+
+```{r}
+cor(germancredit[, sapply(germancredit, is.numeric)])
+
+```
+The correlation matrix provide information about the linear relationship between the variables in the data.
+- The duration, amount, installment and residence all have positive relationship with the response Default, meaning that as these variables increase the likelihood default also increase. The correlation coefficient values of duration and amount indicate a slightly weak relationship, while the variable installment and residence have a very weak positive relationship with Default.
+- There is a negative relationship between Default and age, cards and liable. The higher the age, cards and liable of the credit users, the more likely that their default chance will reduce. The correlation coefficients also indicate that this negative relationship is weak.
+
+
+```{r}
+glm <- glm(Default ~ checkingstatus1, data = germancredit, family = binomial)
+summary(glm)
+
+```
+
+
+
+**b) Build a reasonably “good” logistic regression model for these data. There is no need to explore interactions. Carefully justify all the choices you make in building the model **
+
+
+```{r}
+set.seed(123)
+data_split <- sample.split(germancredit, SplitRatio = 0.8)
+train <- subset(germancredit, data_split == TRUE)
+test <- subset(germancredit, data_split == FALSE)
+
+```
+
+
+```{r}
+# stepwise selection method
+s_aic <- stepAIC(glm(Default ~ ., data = train, family = binomial), direction = "both")
+summary(s_aic)
+```
+
+According to the stepwise selection method, the best model includes the following predictors: checkingstatus1, duration, history, purpose, amount, savings, employ, installment, others, age, otherplans, tele and foreign. 
+
+
+```{r}
+# Subset selection method
+regfit <- regsubsets(Default ~ ., data = train, really.big = TRUE)
+which.min(summary(regfit)$bic)
+coef(regfit,8)
+```
+
+Using the subset selection method, the model with the lowest BIC statistics contains 7 predictors: checkingstatus1, duration, history, purpose, savings, others and otherplans. This is the best model according to this method. 
+
+
+```{r}
+# Convert categorical predictors to factors
+train_lasso <- lapply(train, as.factor)
+
+# One-hot encode categorical predictors
+train_encoded <- model.matrix(~ . - 1, data = train_lasso)
+
+# Extract response variable
+response_y_train <- train_lasso$Default
+
+# Fit lasso regression model
+lasso_model_train <- cv.glmnet(x = train_encoded, y = response_y_train, family = "binomial", alpha = 1)
+
+# Display results
+print(lasso_model_train)
+
+```
+
+
+**c) Write the final model in equation form. Provide a summary of estimates of the regression coefficients, the standard errors of the estimates, and 95% confidence intervals of the coefficients. Interpret the estimated coefficients of at least two predictors. Provide training error rate for the model.**
+
+
+```{r}
+
+```
+
+
+
+**d) Fit a KNN with K chosen optimally using test error rate. Report error rate, sensitivity, specificity, and AUC for the optimal KNN based on the training data. Also, report its estimated test error rate.**
+
+
+```{r}
+
+```
+
+
+
+**e) Repeat (d) using LDA**
+
+
+```{r}
+
+```
+
+
+
+**f) Repeat (d) using QDA**
+
+```{r}
+
+```
+
+**g) Compare the results in (b), (d)-(f). Which classifier would you recommend? Justify your answer.**
+
