@@ -141,11 +141,11 @@ mean(pred_glm1 == test$Default)
 
 ```{r}
 #KNN won't work with character, choosing what is needed (model chosen)
-germancredit %>% dplyr::select(Default, checkingstatus1, duration, history, purpose, savings, others, otherplans) ->
+germancredit %>% dplyr::select(Default, checkingstatus1, duration, history, purpose, amount, savings, employ, installment, others, age, otherplans, tele, foreign) ->
   KNNgermancredit
 
 # changing chr into numeric (for KNN only)
-#checkingstatus1 + duration + history + purpose + savings + others + otherplans
+#Default ~ checkingstatus1 + duration + history + purpose + amount + savings + employ + installment + others + age + otherplans + tele + foreign
 KNNgermancredit %>% mutate(checkingstatus1 = replace(checkingstatus1, checkingstatus1 == "A11", 11)) %>% 
   mutate(checkingstatus1 = replace(checkingstatus1, checkingstatus1 == "A12", 12)) %>% 
   mutate(checkingstatus1 = replace(checkingstatus1, checkingstatus1 == "A13", 13)) %>% 
@@ -189,6 +189,21 @@ KNNgermancredit %>% mutate(otherplans = replace(otherplans, otherplans == "A141"
   mutate(otherplans = replace(otherplans, otherplans == "A143", 143)) %>% 
   transform(otherplans = as.numeric(otherplans)) -> KNNgermancredit
 
+KNNgermancredit %>% mutate(employ = replace(employ, employ == "A71", 71)) %>% 
+  mutate(employ = replace(employ, employ == "A72", 72)) %>% 
+  mutate(employ = replace(employ, employ == "A73", 73)) %>% 
+  mutate(employ = replace(employ, employ == "A74", 74)) %>% 
+  mutate(employ = replace(employ, employ == "A75", 75)) %>% 
+  transform(employ = as.numeric(employ)) -> KNNgermancredit
+
+KNNgermancredit %>% mutate(tele = replace(tele, tele == "A191", 0)) %>% 
+  mutate(tele = replace(tele, tele == "A192", 1)) %>% 
+  transform(tele = as.numeric(tele)) -> KNNgermancredit
+
+KNNgermancredit %>% mutate(foreign = replace(foreign, foreign == "A201", 1)) %>% 
+  mutate(foreign = replace(foreign, foreign == "A202", 0)) %>% 
+  transform(foreign = as.numeric(foreign)) -> KNNgermancredit
+
 KNNgermancredit
 
 #KNNtrain = as.matrix(train)
@@ -206,7 +221,7 @@ data_split <- sample.split(KNNgermancredit, SplitRatio = 0.8)
 KNNtrain <- subset(KNNgermancredit, data_split == TRUE)
 KNNtest <- subset(KNNgermancredit, data_split == FALSE)
 
-KNNtrain
+#KNNtrain
 #KNNtest
 
 ```
@@ -216,9 +231,9 @@ KNNtrain2 = as.matrix(KNNtrain)
 KNNtest2 = as.matrix(KNNtest)
 KNNdefault = KNNtrain$Default
 
-dim(KNNtrain2)
-dim(KNNtest2)
-length(KNNdefault)
+#dim(KNNtrain2)
+#dim(KNNtest2)
+#length(KNNdefault)
 
 #k = 1
 set.seed(123)
@@ -229,7 +244,6 @@ overfraccorknn = mean(knnpred == KNNtest$Default)
 overfraccorknn
 
 # k = 2
-set.seed(123)
 knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 2)
 table(knnpred, KNNtest$Default)
 
@@ -237,16 +251,28 @@ overfraccorknn = mean(knnpred == KNNtest$Default)
 overfraccorknn
 
 # k = 3
-set.seed(123)
 knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 3)
 table(knnpred, KNNtest$Default)
 
 overfraccorknn = mean(knnpred == KNNtest$Default)
 overfraccorknn
 
-# k = 4
-set.seed(123)
+# k = 4 <- best 
 knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 4)
+table(knnpred, KNNtest$Default)
+
+overfraccorknn = mean(knnpred == KNNtest$Default)
+overfraccorknn
+
+#k = 5
+knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 5)
+table(knnpred, KNNtest$Default)
+
+overfraccorknn = mean(knnpred == KNNtest$Default)
+overfraccorknn
+
+#k = 6
+knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 5)
 table(knnpred, KNNtest$Default)
 
 overfraccorknn = mean(knnpred == KNNtest$Default)
