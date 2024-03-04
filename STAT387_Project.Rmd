@@ -18,9 +18,9 @@ library(MASS)
 library(caTools)
 library(leaps)
 
-germancredit <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
+germancredit <- read.csv("germancredit.csv", header = TRUE)
 germancredit <- na.omit(germancredit)
-germancredit
+head(germancredit)
 ```
 
 **a) Perform an exploratory analysis of data**
@@ -120,18 +120,138 @@ The final model will contains 13 predictors: checkingstatus1, duration, history,
 
 
 ```{r}
-
+summary(glm1)
+confint(glm1, level=0.95)
 ```
 
+y = 9.080e-1 - 3.476e-1 (checkingstatus1A12) - 1.408e0 (checkingstatus1A13) - 1.751e0 (checkingstatus1A14) + 3.089e-2 (duration) + 1.882e-1 (historyA31) - 6.645e-1 (historyA32) - 8.910e-1 (historyA33) - 1.250e0 (hiatoryA34) - 1.623e0 (purposeA41) - 1.765e0 (purposeA410) - 8.228e-1 (purposeA42) - 9.244e-1 (purposeA43) - 5.776e-1 (purposeA44) + 7.355e-2 (purposeA45) + 1.585e-1 (purposeA46) - 1.198e0 (purposeA48) - 5.423e-1 (purposeA49) + 1.349e-4 (amount) - 2.798e-1 (savingsA62) - 9.448e-1 (savingsA63) - 1.377e0 (savingsA64) - 1.341e0 (savingsA65) + 4.712e-1 (employA72) + 3.684e-1 (employA73) - 3.389e-1 (employA74) + 3.547e-1 (employA75) + 2.685e-1 (installment) + 7.532e-1 (othersA102) - 1.035e0 (othersA103) - 1.747e-2 (age) - 1.505e-1 (otherplansA142) - 8.252e-1 (otherplansA143) - 3.422e-1 (teleA192) - 2.155e0 (foreignA202)
 
+error rate
+```{r}
+pred_glm1 <- predict(glm1, newdata = test, type = "response")
+pred_glm1 <- ifelse(pred_glm1 > 0.5, 1, 0)
+table(pred_glm1, test$Default)
+
+mean(pred_glm1 == test$Default)
+
+```
 
 **d) Fit a KNN with K chosen optimally using test error rate. Report error rate, sensitivity, specificity, and AUC for the optimal KNN based on the training data. Also, report its estimated test error rate.**
 
 
 ```{r}
+#KNN won't work with character, choosing what is needed (model chosen)
+germancredit %>% dplyr::select(Default, checkingstatus1, duration, history, purpose, savings, others, otherplans) ->
+  KNNgermancredit
+
+# changing chr into numeric (for KNN only)
+#checkingstatus1 + duration + history + purpose + savings + others + otherplans
+KNNgermancredit %>% mutate(checkingstatus1 = replace(checkingstatus1, checkingstatus1 == "A11", 11)) %>% 
+  mutate(checkingstatus1 = replace(checkingstatus1, checkingstatus1 == "A12", 12)) %>% 
+  mutate(checkingstatus1 = replace(checkingstatus1, checkingstatus1 == "A13", 13)) %>% 
+  mutate(checkingstatus1 = replace(checkingstatus1, checkingstatus1 == "A14", 14)) %>% 
+  transform(checkingstatus1 = as.numeric(checkingstatus1)) -> KNNgermancredit
+
+KNNgermancredit %>% mutate(history = replace(history, history == "A30", 30)) %>% 
+  mutate(history = replace(history, history == "A31", 31)) %>%  
+  mutate(history = replace(history, history == "A32", 32)) %>% 
+  mutate(history = replace(history, history == "A33", 33)) %>% 
+  mutate(history = replace(history, history == "A34", 34)) %>% 
+  transform(history = as.numeric(history)) -> KNNgermancredit
+
+KNNgermancredit %>% mutate(purpose = replace(purpose, purpose == "A40", 40)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A41", 41)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A42", 42)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A43", 43)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A44", 44)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A45", 45)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A46", 46)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A47", 47)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A48", 48)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A49", 49)) %>% 
+  mutate(purpose = replace(purpose, purpose == "A410", 410)) %>% 
+  transform(purpose = as.numeric(purpose)) -> KNNgermancredit
+
+KNNgermancredit %>% mutate(savings = replace(savings, savings == "A61", 61)) %>% 
+  mutate(savings = replace(savings, savings == "A62", 62)) %>%
+  mutate(savings = replace(savings, savings == "A63", 63)) %>%
+  mutate(savings = replace(savings, savings == "A64", 64)) %>% 
+  mutate(savings = replace(savings, savings == "A65", 65)) %>% 
+  transform(savings = as.numeric(savings)) -> KNNgermancredit
+
+KNNgermancredit %>% mutate(others = replace(others, others == "A101", 101)) %>% 
+  mutate(others = replace(others, others == "A102", 102)) %>% 
+  mutate(others = replace(others, others == "A103", 103)) %>% 
+  transform(others = as.numeric(others)) -> KNNgermancredit
+
+KNNgermancredit %>% mutate(otherplans = replace(otherplans, otherplans == "A141", 141)) %>% 
+  mutate(otherplans = replace(otherplans, otherplans == "A142", 142)) %>% 
+  mutate(otherplans = replace(otherplans, otherplans == "A143", 143)) %>% 
+  transform(otherplans = as.numeric(otherplans)) -> KNNgermancredit
+
+KNNgermancredit
+
+#KNNtrain = as.matrix(train)
+#KNNtest = as.matrix(test)
+#KNNdefault = train$Default
+
+#checkingstatus1 + duration + history + purpose + savings + others + otherplans
+#knnpred = knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 1)
 
 ```
 
+```{r}
+set.seed(123)
+data_split <- sample.split(KNNgermancredit, SplitRatio = 0.8)
+KNNtrain <- subset(KNNgermancredit, data_split == TRUE)
+KNNtest <- subset(KNNgermancredit, data_split == FALSE)
+
+KNNtrain
+#KNNtest
+
+```
+
+```{r}
+KNNtrain2 = as.matrix(KNNtrain)
+KNNtest2 = as.matrix(KNNtest)
+KNNdefault = KNNtrain$Default
+
+dim(KNNtrain2)
+dim(KNNtest2)
+length(KNNdefault)
+
+#k = 1
+set.seed(123)
+knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 1)
+table(knnpred, KNNtest$Default)
+
+overfraccorknn = mean(knnpred == KNNtest$Default)
+overfraccorknn
+
+# k = 2
+set.seed(123)
+knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 2)
+table(knnpred, KNNtest$Default)
+
+overfraccorknn = mean(knnpred == KNNtest$Default)
+overfraccorknn
+
+# k = 3
+set.seed(123)
+knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 3)
+table(knnpred, KNNtest$Default)
+
+overfraccorknn = mean(knnpred == KNNtest$Default)
+overfraccorknn
+
+# k = 4
+set.seed(123)
+knnpred = knn(train = KNNtrain2, test = KNNtest2, cl = KNNdefault, k = 4)
+table(knnpred, KNNtest$Default)
+
+overfraccorknn = mean(knnpred == KNNtest$Default)
+overfraccorknn
+```
 
 
 **e) Repeat (d) using LDA**
