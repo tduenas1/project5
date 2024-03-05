@@ -20,11 +20,20 @@ library(leaps)
 library(caret)
 library(ROCR)
 library(pROC)
+library(tidyverse)
+library(smallstuff)
 
-german <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
-german_f <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
+
+#german <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
+#german_f <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
+#german <- na.omit(german)
+#german_f <- na.omit(german_f)
+
+german <- read.csv("germancredit.csv", header = TRUE)
+german_f <- read.csv("germancredit.csv", header = TRUE)
 german <- na.omit(german)
 german_f <- na.omit(german_f)
+head(german_f)
 
 
 german_f$checkingstatus1 <- as.numeric(factor(german_f$checkingstatus1))
@@ -40,6 +49,8 @@ german_f$housing <- as.numeric(factor(german_f$housing))
 german_f$job <- as.numeric(factor(german_f$job))
 german_f$tele <- as.numeric(factor(german_f$tele))
 german_f$foreign <- as.numeric(factor(german_f$foreign))
+
+head(german_f)
 
 
 ```
@@ -139,6 +150,7 @@ From the confusion matrix, we can calculate the percentage of correctly predicte
 
 The final model will contains 13 predictors: checkingstatus1, duration, history, purpose, amount, savings, employ, installment, others, age, otherplans, tele and foreign. 
 
+
 **c) Write the final model in equation form. Provide a summary of estimates of the regression coefficients, the standard errors of the estimates, and 95% confidence intervals of the coefficients. Interpret the estimated coefficients of at least two predictors. Provide training error rate for the model.**
 
 
@@ -147,10 +159,15 @@ summary(glm1)
 
 # test error rate
 mean(pred_glm1 != test$Default)
+
+# confidence intervals of coefficiencs
+confint(glm1, level=0.95)
 ```
 
 The model in equation form:
 Default = (-6.058e-01)checkingstatus1 + (2.469e-02)duration + (-3.705e-01)history + (1.085e-04)amount + (-3.365e-01)savings + (2.307e-01)installment + (-3.379e-01)other + (1.458e-01)property + (-1.464e-02)age + (-4.020e-01)otherplans + (2.624e-01)cards + (-4.030e-01)tele + (-1.804e+00)foreign
+
+Duration: 
 
 
 
@@ -160,17 +177,109 @@ Default = (-6.058e-01)checkingstatus1 + (2.469e-02)duration + (-3.705e-01)histor
 
 ```{r}
 
+train %>% dplyr::select(Default, checkingstatus1, duration, history, amount, savings, installment, others, property, age, otherplans, cards, tele, foreign) -> train2
+
+test %>% dplyr::select(Default, checkingstatus1, duration, history, amount, savings, installment, others, property, age, otherplans, cards, tele, foreign) -> test2
+
+#test2$Default
+KNNtrain = as.matrix(train2)
+KNNtest = as.matrix(test2)
+KNNdefault = train2$Default
+
 ```
 
+```{r}
+set.seed(123)
 
+knnpred = knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 1)
+#print(table(knnpred, test2$Default))
+KNN_er = mean(knnpred != test2$Default)
+
+KNN_df = data.frame(k_num = c(1),
+                    error_rate = c(KNN_er))
+
+for (n in 2:10)
+{
+  knnpred = knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = n)
+  #print(table(knnpred, test2$Default))
+  
+  KNN_er = mean(knnpred != test2$Default)
+  
+  KNN_df = rbind(KNN_df, list(n, KNN_er))
+
+}
+
+KNN_df
+```
+Looking at the table it seems that k = 10 is the optimal with the lowest error rate of 32.7%
+
+```{r}
+knnpred = class::knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 10, prob = TRUE)
+table(knnpred, test2$Default) -> knntab
+knntab
+
+knntab[1] -> a
+knntab[2] -> c
+knntab[3] -> b
+knntab[4] -> d
+
+
+# error rate
+mean(knnpred != test2$Default)
+
+# sensitivity
+knnsens = a + c
+knnsens = a / knnsens
+knnsens
+
+# specificity
+knnspec = b + d
+knnspec = d / knnspec
+knnspec
+
+#AUC
+ROCknn(knnpred, test2$Default) -> knnroc
+
+
+```
+Error rate: 34.5%
+Sensitivity: 81.4%
+Specificity: 18.3%
+Area under the curve: 0.506
 
 **e) Repeat (d) using LDA**
 
 
 ```{r}
+ldafit <- lda(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, data = train, family = binomial)
+
+# confusion matrix for qda 
+lda_pred <- predict(ldafit, test)
+lda_class <- predict(ldafit, test)$class
+cmatrix_lda <- table(lda_class, test$Default)
+cmatrix_lda
+
+# error rate
+mean(lda_class != test$Default)
+
+# sensitivity
+sensitivity(cmatrix_lda)
+
+# specificity
+specificity(cmatrix_lda)
+
+# AUC
+roc_lda <- roc(test$Default, lda_pred$posterior[,2])
+auc(roc_lda)
+
+# ROC curve
+ggroc(roc_lda)
 
 ```
-
+Error rate: 24.8%
+Sensitivity: 87.6%
+Specificity: 38.3%
+Area under the curve: 0.7346
 
 
 **f) Repeat (d) using QDA**
@@ -203,13 +312,10 @@ auc(roc_qda)
 ggroc(roc_qda)
 ```
 Error rate: 30.67%
-Sensitivity: 0.741573
-Specificity: 0.55
+Sensitivity: 74.2%
+Specificity: 55%
 Area under the curve: 0.7159
 
 **g) Compare the results in (b), (d)-(f). Which classifier would you recommend? Justify your answer.**
 
-
-```{r}
-
-```
+The classifier I would reccomend is LDA 
