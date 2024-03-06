@@ -310,11 +310,17 @@ auc(roc_qda)
 
 # ROC curve
 ggroc(roc_qda)
+
+# test error rate
+qdafit_test <- qda(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, data = test, family = binomial)
+qda_class_test <- predict(qdafit_test, test)$class
+mean(qda_class_test != test$Default)
 ```
 Error rate: 30.67%
 Sensitivity: 74.2%
 Specificity: 55%
 Area under the curve: 0.7159
+Test error rate: 15.55% 
 
 **g) Compare the results in (b), (d)-(f). Which classifier would you recommend? Justify your answer.**
 
