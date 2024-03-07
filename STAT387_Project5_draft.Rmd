@@ -185,6 +185,7 @@ test %>% dplyr::select(Default, checkingstatus1, duration, history, amount, savi
 KNNtrain = as.matrix(train2)
 KNNtest = as.matrix(test2)
 KNNdefault = train2$Default
+KNNdefault_tr = test2$Default
 
 ```
 
@@ -196,7 +197,7 @@ knnpred = knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 1)
 KNN_er = mean(knnpred != test2$Default)
 
 KNN_df = data.frame(k_num = c(1),
-                    error_rate = c(KNN_er))
+                    test_error_rate = c(KNN_er))
 
 for (n in 2:10)
 {
@@ -218,13 +219,19 @@ knnpred = class::knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 10, 
 table(knnpred, test2$Default) -> knntab
 knntab
 
+knnpred_tr = class::knn(train = KNNtest, test = KNNtrain, cl = KNNdefault_tr, k = 10, prob = TRUE)
+table(knnpred_tr, train2$Default)
+
+
 knntab[1] -> a
 knntab[2] -> c
 knntab[3] -> b
 knntab[4] -> d
 
+# training error rate
+mean(knnpred_tr != train2$Default)
 
-# error rate
+# test error rate
 mean(knnpred != test2$Default)
 
 # sensitivity
@@ -242,8 +249,9 @@ ROCknn(knnpred, test2$Default) -> knnroc
 
 
 ```
-Error rate: 34.5%
-Sensitivity: 81.4%
+Training error rate: 32.5%
+Testing error rate: 34%
+Sensitivity: 82%
 Specificity: 18.3%
 Area under the curve: 0.506
 
@@ -253,13 +261,22 @@ Area under the curve: 0.506
 ```{r}
 ldafit <- lda(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, data = train, family = binomial)
 
-# confusion matrix for qda 
+# confusion matrix for lda (train)
+lda_pred_tr <- predict(ldafit, train)
+lda_class_tr <- predict(ldafit, train)$class
+cmatrix_lda_tr <- table(lda_class_tr, train$Default)
+cmatrix_lda_tr
+
+# confusion matrix for lda (test)
 lda_pred <- predict(ldafit, test)
 lda_class <- predict(ldafit, test)$class
 cmatrix_lda <- table(lda_class, test$Default)
 cmatrix_lda
 
-# error rate
+#error rate (training)
+mean(lda_class_tr != train$Default)
+
+# error rate (testing)
 mean(lda_class != test$Default)
 
 # sensitivity
@@ -276,7 +293,8 @@ auc(roc_lda)
 ggroc(roc_lda)
 
 ```
-Error rate: 24.8%
+Training error rate: 22.0%
+Test error rate: 24.8%
 Sensitivity: 87.6%
 Specificity: 38.3%
 Area under the curve: 0.7346
@@ -289,11 +307,20 @@ Area under the curve: 0.7346
 # Fit qda model
 qdafit <- qda(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, data = train, family = binomial)
 
-# confusion matrix for qda 
+# confusion matrix for qda (test)
 qda_pred <- predict(qdafit, test)
 qda_class <- predict(qdafit, test)$class
 cmatrix_qda <- table(qda_class, test$Default)
 cmatrix_qda
+
+# confusion matrix for lda (train)
+qda_pred_tr <- predict(qdafit, train)
+qda_class_tr <- predict(qdafit, train)$class
+cmatrix_qda_tr <- table(qda_class_tr, train$Default)
+cmatrix_qda_tr
+
+#error rate (training)
+mean(qda_class_tr != train$Default)
 
 # error rate
 mean(qda_class != test$Default)
@@ -310,18 +337,13 @@ auc(roc_qda)
 
 # ROC curve
 ggroc(roc_qda)
-
-# test error rate
-qdafit_test <- qda(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, data = test, family = binomial)
-qda_class_test <- predict(qdafit_test, test)$class
-mean(qda_class_test != test$Default)
 ```
-Error rate: 30.67%
+Training error rate: 22.96%
+Test error rate: 30.67%
 Sensitivity: 74.2%
 Specificity: 55%
 Area under the curve: 0.7159
-Test error rate: 15.55% 
 
 **g) Compare the results in (b), (d)-(f). Which classifier would you recommend? Justify your answer.**
 
-The classifier I would reccomend is LDA 
+The classifier I would reccomend is LDA. Looking at the error rates of the testing and training it seems to be about 8-10% lower than QDA and the optimal KNN. The sensitivity is higher than both QDA and KNN with 87.6% so it is more likely to find a true positive than the others.  The AUC of the ROC is highest in LDA which means that the model predicts it most correctly compared to the other three. Although the specificity is lower then QDA with it finding a true negative a less than the QDA the classifier LDA is only lower by less than 2% so in all the LDA seems the most accurate overall. 
