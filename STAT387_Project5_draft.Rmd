@@ -74,12 +74,27 @@ The categorical variables are: Default, checkingstatus1, history, purpose, savin
 
 ```{r}
 cor(german[, sapply(german, is.numeric)])
-
+corrplot(cormatrix)
 ```
 The correlation matrix provide information about the linear relationship between the variables in the data.
 - The duration, amount, installment and residence all have positive relationship with the response Default, meaning that as these variables increase the likelihood default also increase. The correlation coefficient values of duration and amount indicate a slightly weak relationship, while the variable installment and residence have a very weak positive relationship with Default.
 - There is a negative relationship between Default and age, cards and liable. The higher the age, cards and liable of the credit users, the more likely that their default chance will reduce. The correlation coefficients also indicate that this negative relationship is weak.
 
+```{r}
+ggplot(german, aes(x = job, fill = factor(Default))) +
+  geom_bar(position = "dodge") +
+  labs(title = "Default Status and Job", x = "Job", y = "Count", fill = "Default") +
+  scale_x_discrete(labels = c("A171" = "Unemployed/Unskilled", 
+                              "A172" = "Unskilled", 
+                              "A173" = "Skilled Employee", 
+                              "A174" = "Management"))
+
+
+ggplot(german, aes(x = age, fill = factor(Default))) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Age and Default", x = "Age", y = "Density", fill = "Default")
+
+```
 
 **b) Build a reasonably “good” logistic regression model for these data. There is no need to explore interactions. Carefully justify all the choices you make in building the model **
 
@@ -122,11 +137,21 @@ glm1 <- glm(Default ~ checkingstatus1 + duration + history + amount + savings + 
 # Confusion matric for model 1
 pred_glm1 <- predict(glm1, newdata = test, type = "response")
 pred_glm1 <- ifelse(pred_glm1 > 0.5, 1, 0)
-table(pred_glm1, test$Default)
+cmatrix_glm1 <- table(pred_glm1, test$Default)
+cmatrix_glm1
 
 # Percentage of correct prediction of model 1
 mean(pred_glm1 == test$Default)
 
+# Sensitivity
+sensitivity(cmatrix_glm1)
+
+# Specificity
+specificity(cmatrix_glm1)
+
+# ROC and AUC
+roc_glm1 <- roc(test$Default, pred_glm1)
+auc(roc_glm1)
 
 
 ```
@@ -139,11 +164,23 @@ glm2 <- glm(Default ~ checkingstatus1 + duration + history + amount + savings + 
 # Confusion matrix for model 2
 pred_glm2 <- predict(glm2, newdata = test, type = "response")
 pred_glm2 <- ifelse(pred_glm2 > 0.5, 1, 0)
-table(pred_glm2, test$Default)
+cmatrix_glm2 <- table(pred_glm2, test$Default)
+cmatrix_glm2
 
 # Percentage of correct prediction of model 2
 mean(pred_glm2 == test$Default)
 
+# Sensitivity
+sensitivity(cmatrix_glm2)
+
+# Specificity
+specificity(cmatrix_glm2)
+
+# ROC and AUC
+roc_glm2 <- roc(test$Default, pred_glm2)
+auc(roc_glm2)
+
+ggroc(list(Model1 = roc_glm1, Model2 = roc_glm2))
 ```
 
 From the confusion matrix, we can calculate the percentage of correctly predicted defaulted credit. Since model 1 has higher accuracy (75.63%) compared to model 2 (74.37%), it appears that model 1 is better in terms of accuracy on the test data. Therefore, glm1 can be considered the better model among these two. 
