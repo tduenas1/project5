@@ -240,7 +240,7 @@ KNN_er = mean(knnpred != test2$Default)
 KNN_df = data.frame(k_num = c(1),
                     test_error_rate = c(KNN_er))
 
-for (n in 2:10)
+for (n in 2:50)
 {
   knnpred = knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = n)
   #print(table(knnpred, test2$Default))
@@ -252,15 +252,20 @@ for (n in 2:10)
 }
 
 KNN_df
+
+lo = loess(KNN_df$test_error_rate ~ KNN_df$k_num)
+plot(KNN_df)
+lines(predict(lo))
 ```
-Looking at the table it seems that k = 10 is the optimal with the lowest error rate of 32.7%
+Looking at the table it seems that k = 26 is the optimal with the error rate of 31.4%
 
 ```{r}
-knnpred = class::knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 10, prob = TRUE)
+set.seed(123)
+knnpred = class::knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 26, prob = TRUE)
 table(knnpred, test2$Default) -> knntab
 knntab
 
-knnpred_tr = class::knn(train = KNNtest, test = KNNtrain, cl = KNNdefault_tr, k = 10, prob = TRUE)
+knnpred_tr = class::knn(train = KNNtest, test = KNNtrain, cl = KNNdefault_tr, k = 26, prob = TRUE)
 table(knnpred_tr, train2$Default)
 
 
@@ -290,11 +295,11 @@ ROCknn(knnpred, test2$Default) -> knnroc
 
 
 ```
-Training error rate: 32.5%
-Testing error rate: 34%
-Sensitivity: 82%
-Specificity: 18.3%
-Area under the curve: 0.506
+Training error rate: 31.4%
+Testing error rate: 27.7%
+Sensitivity: 94.3%
+Specificity: 6.6%
+Area under the curve: 0.509
 
 **e) Repeat (d) using LDA**
 
@@ -387,4 +392,4 @@ Area under the curve: 0.7159
 
 **g) Compare the results in (b), (d)-(f). Which classifier would you recommend? Justify your answer.**
 
-The classifier I would reccomend is LDA. Looking at the error rates of the testing and training it seems to be about 8-10% lower than QDA and the optimal KNN. The sensitivity is higher than both QDA and KNN with 87.6% so it is more likely to find a true positive than the others.  The AUC of the ROC is highest in LDA which means that the model predicts it most correctly compared to the other three. Although the specificity is lower then QDA with it finding a true negative a less than the QDA the classifier LDA is only lower by less than 2% so in all the LDA seems the most accurate overall. 
+The classifier I would reccomend is LDA. Looking at the error rates of the testing and training it seems to be about 8-10% lower than QDA and the optimal KNN. The sensitivity is higher than QDA with 87.6% so it is more likely to find a true positive, and the specificity is higher in KNN. Although the two have higher sensitivity or higher specificity LDA ended up with the higher AUC of ROC because it has the better prediction overall of the true values. Which leads to LDA being the best classifier. 
