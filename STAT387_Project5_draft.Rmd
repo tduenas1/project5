@@ -1,6 +1,6 @@
 ---
 title: "STAT387 Project 5"
-author: ""
+author: " Hung Dang & Theresa Marie Duenas"
 output: rmdformats::material
 ---
 
