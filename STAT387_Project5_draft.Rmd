@@ -22,6 +22,7 @@ library(ROCR)
 library(pROC)
 library(tidyverse)
 library(smallstuff)
+library(corrplot)
 
 
 #german <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
@@ -73,7 +74,8 @@ The categorical variables are: Default, checkingstatus1, history, purpose, savin
 
 
 ```{r}
-cor(german[, sapply(german, is.numeric)])
+cormatrix <- cor(german[, sapply(german, is.numeric)])
+
 corrplot(cormatrix)
 ```
 The correlation matrix provide information about the linear relationship between the variables in the data.
@@ -134,7 +136,7 @@ So now we have 2 models to compare, call them glm1 and glm2. Lets look at the co
 # Fit logistic model 1
 glm1 <- glm(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, family = binomial, data = train)
 
-# Confusion matric for model 1
+# Confusion matrix for model 1
 pred_glm1 <- predict(glm1, newdata = test, type = "response")
 pred_glm1 <- ifelse(pred_glm1 > 0.5, 1, 0)
 cmatrix_glm1 <- table(pred_glm1, test$Default)
