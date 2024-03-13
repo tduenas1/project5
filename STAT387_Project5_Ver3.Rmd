@@ -1,0 +1,396 @@
+---
+title: "STAT387 Project 5"
+author: " Hung Dang & Theresa Marie Duenas"
+output: rmdformats::material
+---
+
+# Project 5
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(glmnet)
+library(class)
+library(e1071)
+library(boot)
+library(MASS)
+library(caTools)
+library(leaps)
+library(caret)
+library(ROCR)
+library(pROC)
+library(tidyverse)
+library(smallstuff)
+library(corrplot)
+
+
+#german <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
+#german_f <- read.csv("/Users/ht/Desktop/STAT387/Project/germancredit.csv", header = TRUE)
+#german <- na.omit(german)
+#german_f <- na.omit(german_f)
+
+german <- read.csv("germancredit.csv", header = TRUE)
+german_f <- read.csv("germancredit.csv", header = TRUE)
+german <- na.omit(german)
+german_f <- na.omit(german_f)
+
+
+
+german_f$checkingstatus1 <- as.numeric(factor(german_f$checkingstatus1))
+german_f$history <- as.numeric(factor(german_f$history))
+german_f$purpose <- as.numeric(factor(german_f$purpose))
+german_f$savings <- as.numeric(factor(german_f$savings))
+german_f$employ <- as.numeric(factor(german_f$employ))
+german_f$status <- as.numeric(factor(german_f$status))
+german_f$others <- as.numeric(factor(german_f$others))
+german_f$property <- as.numeric(factor(german_f$property))
+german_f$otherplans <- as.numeric(factor(german_f$otherplans))
+german_f$housing <- as.numeric(factor(german_f$housing))
+german_f$job <- as.numeric(factor(german_f$job))
+german_f$tele <- as.numeric(factor(german_f$tele))
+german_f$foreign <- as.numeric(factor(german_f$foreign))
+
+german_f$amount <- (german_f$amount)/1000
+german_f$age <- (german_f$age)/10
+german_f
+
+
+```
+
+**a) Perform an exploratory analysis of data**
+
+
+```{r}
+summary(german)
+
+glimpse(german)
+```
+
+
+The data set contains information about the credit information of 1000 people in Germany and whether they are defaulted on their credit or not.The data consists of 21 variables, most of which are categorical data including the response Default. The response Default falls into one of two categories, 1 means defaulted and 0 means not defaulted.
+The continuous variables are: duration, amount, installment, residence, age, cards, liable
+The categorical variables are: Default, checkingstatus1, history, purpose, savings, employ, status, others, property, otherplans, housing, job, tele, foreign.
+
+
+
+
+```{r}
+cormatrix <- cor(german[, sapply(german, is.numeric)])
+
+corrplot(cormatrix)
+```
+The correlation matrix provide information about the linear relationship between the variables in the data.
+- The duration, amount, installment and residence all have positive relationship with the response Default, meaning that as these variables increase the likelihood default also increase. The correlation coefficient values of duration and amount indicate a slightly weak relationship, while the variable installment and residence have a very weak positive relationship with Default.
+- There is a negative relationship between Default and age, cards and liable. The higher the age, cards and liable of the credit users, the more likely that their default chance will reduce. The correlation coefficients also indicate that this negative relationship is weak.
+
+```{r}
+ggplot(german, aes(x = job, fill = factor(Default))) +
+  geom_bar(position = "dodge") +
+  labs(title = "Default Status and Job", x = "Job", y = "Count", fill = "Default") +
+  scale_x_discrete(labels = c("A171" = "Unemployed/Unskilled", 
+                              "A172" = "Unskilled", 
+                              "A173" = "Skilled Employee", 
+                              "A174" = "Management"))
+
+
+ggplot(german, aes(x = age, fill = factor(Default))) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Age and Default", x = "Age", y = "Density", fill = "Default")
+
+```
+
+**b) Build a reasonably “good” logistic regression model for these data. There is no need to explore interactions. Carefully justify all the choices you make in building the model **
+
+
+```{r}
+set.seed(123)
+data_split <- sample.split(german_f, SplitRatio = 0.8)
+train <- subset(german_f, data_split == TRUE)
+test <- subset(german_f, data_split == FALSE)
+
+```
+
+
+```{r}
+# stepwise AIC selection method
+s_aic <- stepAIC(glm(Default ~ ., data = train, family = binomial), direction = "both")
+summary(s_aic)
+
+```
+
+According to the stepwise AIC selection method, the best model with the smallest AIC includes the following predictors: checkingstatus1, duration, history, amount, savings, installment, others, property, age, otherplans, cards, tele and foreign. 
+
+
+```{r}
+# Subset selection method
+regfit <- regsubsets(Default ~ ., data = train, really.big = TRUE)
+which.min(summary(regfit)$bic)
+coef(regfit,8)
+
+```
+
+Using the subset selection method, the model with the lowest BIC statistics contains 8 predictors: checkingstatus1, duration, history, amount, savings, installment, otherplans and foreign. This is the best model according to this method. 
+
+So now we have 2 models to compare, call them glm1 and glm2. Lets look at the confusion matrix and see how the 2 models perform.
+
+```{r}
+# Fit logistic model 1
+glm1 <- glm(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, family = binomial, data = train)
+
+# Confusion matrix for model 1
+pred_glm1 <- predict(glm1, newdata = test, type = "response")
+pred_glm1 <- ifelse(pred_glm1 > 0.5, 1, 0)
+cmatrix_glm1 <- table(pred_glm1, test$Default)
+cmatrix_glm1
+
+# Percentage of correct prediction of model 1
+mean(pred_glm1 == test$Default)
+
+# Sensitivity
+sensitivity(cmatrix_glm1)
+
+# Specificity
+specificity(cmatrix_glm1)
+
+# ROC and AUC
+roc_glm1 <- roc(test$Default, pred_glm1)
+auc(roc_glm1)
+
+
+```
+
+
+```{r}
+# Fit logistic model 2
+glm2 <- glm(Default ~ checkingstatus1 + duration + history + amount + savings + installment + otherplans + foreign, family = binomial, data = train)
+
+# Confusion matrix for model 2
+pred_glm2 <- predict(glm2, newdata = test, type = "response")
+pred_glm2 <- ifelse(pred_glm2 > 0.5, 1, 0)
+cmatrix_glm2 <- table(pred_glm2, test$Default)
+cmatrix_glm2
+
+# Percentage of correct prediction of model 2
+mean(pred_glm2 == test$Default)
+
+# Sensitivity
+sensitivity(cmatrix_glm2)
+
+# Specificity
+specificity(cmatrix_glm2)
+
+# ROC and AUC
+roc_glm2 <- roc(test$Default, pred_glm2)
+auc(roc_glm2)
+
+ggroc(list(Model1 = roc_glm1, Model2 = roc_glm2))
+```
+
+From the confusion matrix, we can calculate the percentage of correctly predicted defaulted credit. Since model 1 has higher accuracy (75.63%) compared to model 2 (74.37%), it appears that model 1 is better in terms of accuracy on the test data. Therefore, glm1 can be considered the better model among these two. 
+
+The final model will contains 13 predictors: checkingstatus1, duration, history, purpose, amount, savings, employ, installment, others, age, otherplans, tele and foreign. 
+
+
+**c) Write the final model in equation form. Provide a summary of estimates of the regression coefficients, the standard errors of the estimates, and 95% confidence intervals of the coefficients. Interpret the estimated coefficients of at least two predictors. Provide training error rate for the model.**
+
+
+```{r}
+summary(glm1)
+
+
+# test error rate
+mean(pred_glm1 != test$Default)
+
+# confidence intervals of coefficiencs
+confint(glm1, level=0.95)
+```
+
+The model in equation form:
+Default = 4.589636 + (-0.605758)checkingstatus1 + (0.024693)duration + (-0.370524)history + (0.108520)amount + (-0.336486)savings + (0.230734)installment + (-0.337923)other + (0.145759)property + (-0.146383)age + (-0.402043)otherplans + (0.262443)cards + (-0.402953)tele + (-1.804171)foreign
+
+Duration: duration and default have a positive relationship to each other at a 2.469e-02. They have a significant relationship to eachother. As duration increases by 1 default would increase by 2.469e-02 when everything else is held at a constant.
+
+checkingstatus1: checkingstatus1 and default have a negative relationship to each other at a -6.058e-01. They have a significant relationship to eachother. As checkingstatus increases by 1 default would decrease by 6.058e-01 when everything else is held at a constant.
+
+
+
+**d) Fit a KNN with K chosen optimally using test error rate. Report error rate, sensitivity, specificity, and AUC for the optimal KNN based on the training data. Also, report its estimated test error rate.**
+
+
+```{r}
+
+train %>% dplyr::select(Default, checkingstatus1, duration, history, amount, savings, installment, others, property, age, otherplans, cards, tele, foreign) -> train2
+
+test %>% dplyr::select(Default, checkingstatus1, duration, history, amount, savings, installment, others, property, age, otherplans, cards, tele, foreign) -> test2
+
+#test2$Default
+KNNtrain = as.matrix(train2)
+KNNtest = as.matrix(test2)
+KNNdefault = train2$Default
+KNNdefault_tr = test2$Default
+
+```
+
+```{r}
+set.seed(123)
+
+knnpred = knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 1)
+#print(table(knnpred, test2$Default))
+KNN_er = mean(knnpred != test2$Default)
+
+KNN_df = data.frame(k_num = c(1),
+                    test_error_rate = c(KNN_er))
+
+for (n in 2:50)
+{
+  knnpred = knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = n)
+  #print(table(knnpred, test2$Default))
+  
+  KNN_er = mean(knnpred != test2$Default)
+  
+  KNN_df = rbind(KNN_df, list(n, KNN_er))
+
+}
+
+KNN_df
+
+lo = loess(KNN_df$test_error_rate ~ KNN_df$k_num)
+plot(KNN_df)
+lines(predict(lo))
+```
+Looking at the table it seems that k = 3 is the optimal with the error rate of 31.4%
+
+```{r}
+set.seed(123)
+knnpred = class::knn(train = KNNtrain, test = KNNtest, cl = KNNdefault, k = 3, prob = TRUE)
+table(knnpred, test2$Default) -> knntab
+knntab
+
+knnpred_tr = class::knn(train = KNNtest, test = KNNtrain, cl = KNNdefault_tr, k = 3, prob = TRUE)
+table(knnpred_tr, train2$Default)
+
+
+knntab[1] -> a
+knntab[2] -> c
+knntab[3] -> b
+knntab[4] -> d
+
+# training error rate
+mean(knnpred_tr != train2$Default)
+
+# test error rate
+mean(knnpred != test2$Default)
+
+# sensitivity
+knnsens = a + c
+knnsens = a / knnsens
+knnsens
+
+# specificity
+knnspec = b + d
+knnspec = d / knnspec
+knnspec
+
+#AUC
+ROCknn(knnpred, test2$Default) -> knnroc
+
+
+```
+Training error rate: 25.9%
+Testing error rate: 16.8%
+Sensitivity: 93.3%
+Specificity: 53.3%
+Area under the curve: 0.778
+
+**e) Repeat (d) using LDA**
+
+
+```{r}
+ldafit <- lda(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, data = train, family = binomial)
+
+# confusion matrix for lda (train)
+lda_pred_tr <- predict(ldafit, train)
+lda_class_tr <- predict(ldafit, train)$class
+cmatrix_lda_tr <- table(lda_class_tr, train$Default)
+cmatrix_lda_tr
+
+# confusion matrix for lda (test)
+lda_pred <- predict(ldafit, test)
+lda_class <- predict(ldafit, test)$class
+cmatrix_lda <- table(lda_class, test$Default)
+cmatrix_lda
+
+#error rate (training)
+mean(lda_class_tr != train$Default)
+
+# error rate (testing)
+mean(lda_class != test$Default)
+
+# sensitivity
+sensitivity(cmatrix_lda)
+
+# specificity
+specificity(cmatrix_lda)
+
+# AUC
+roc_lda <- roc(test$Default, lda_pred$posterior[,2])
+auc(roc_lda)
+
+# ROC curve
+ggroc(roc_lda)
+
+```
+Training error rate: 22.0%
+Test error rate: 24.8%
+Sensitivity: 87.6%
+Specificity: 38.3%
+Area under the curve: 0.7346
+
+
+**f) Repeat (d) using QDA**
+
+
+```{r}
+# Fit qda model
+qdafit <- qda(Default ~ checkingstatus1 + duration + history + amount + savings + installment + others + property + age + otherplans + cards + tele + foreign, data = train, family = binomial)
+
+# confusion matrix for qda (test)
+qda_pred <- predict(qdafit, test)
+qda_class <- predict(qdafit, test)$class
+cmatrix_qda <- table(qda_class, test$Default)
+cmatrix_qda
+
+# confusion matrix for lda (train)
+qda_pred_tr <- predict(qdafit, train)
+qda_class_tr <- predict(qdafit, train)$class
+cmatrix_qda_tr <- table(qda_class_tr, train$Default)
+cmatrix_qda_tr
+
+#error rate (training)
+mean(qda_class_tr != train$Default)
+
+# error rate
+mean(qda_class != test$Default)
+
+# sensitivity
+sensitivity(cmatrix_qda)
+
+# specificity
+specificity(cmatrix_qda)
+
+# AUC
+roc_qda <- roc(test$Default, qda_pred$posterior[,2])
+auc(roc_qda)
+
+# ROC curve
+ggroc(roc_qda)
+```
+Training error rate: 22.9%
+Test error rate: 30.7%
+Sensitivity: 74.2%
+Specificity: 55%
+Area under the curve: 0.7159
+
+**g) Compare the results in (b), (d)-(f). Which classifier would you recommend? Justify your answer.**
+
