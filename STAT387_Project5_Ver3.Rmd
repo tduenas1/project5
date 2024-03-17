@@ -198,12 +198,34 @@ The final model will contains 13 predictors: checkingstatus1, duration, history,
 ```{r}
 summary(glm1)
 
-
-# test error rate
-mean(pred_glm1 != test$Default)
-
 # confidence intervals of coefficiencs
 confint(glm1, level=0.95)
+```
+
+```{r}
+pred_glm1 <- predict(glm1, newdata = test, type = "response")
+pred_glm1 <- ifelse(pred_glm1 > 0.5, 1, 0)
+cmatrix_glm1 <- table(pred_glm1, test$Default)
+cmatrix_glm1
+
+pred_glm1_tr <- predict(glm1, newdata = train, type = "response")
+pred_glm1_tr <- ifelse(pred_glm1 > 0.5, 1, 0)
+cmatrix_glm1_tr <- table(pred_glm1, test$Default)
+cmatrix_glm1_tr
+
+# Percentage of correct prediction of model 1
+mean(pred_glm1 != test$Default)
+mean(pred_glm1_tr != train$Default)
+
+# Sensitivity
+sensitivity(cmatrix_glm1)
+
+# Specificity
+specificity(cmatrix_glm1)
+
+# ROC and AUC
+roc_glm1 <- roc(test$Default, pred_glm1)
+auc(roc_glm1)
 ```
 
 The model in equation form:
@@ -213,7 +235,11 @@ Duration: duration and default have a positive relationship to each other at a 2
 
 checkingstatus1: checkingstatus1 and default have a negative relationship to each other at a -6.058e-01. They have a significant relationship to eachother. As checkingstatus increases by 1 default would decrease by 6.058e-01 when everything else is held at a constant.
 
-
+training error rate: 37.8%
+testing error rate: 24.4%
+sensitivity: 87.6%
+specificity: 40%
+AUC: 0.6382
 
 **d) Fit a KNN with K chosen optimally using test error rate. Report error rate, sensitivity, specificity, and AUC for the optimal KNN based on the training data. Also, report its estimated test error rate.**
 
@@ -259,7 +285,7 @@ lo = loess(KNN_df$test_error_rate ~ KNN_df$k_num)
 plot(KNN_df)
 lines(predict(lo))
 ```
-Looking at the table it seems that k = 3 is the optimal with the error rate of 31.4%
+Looking at the table it seems that k = 3 is the optimal with the error rate of 16.8%
 
 ```{r}
 set.seed(123)
@@ -394,3 +420,4 @@ Area under the curve: 0.7159
 
 **g) Compare the results in (b), (d)-(f). Which classifier would you recommend? Justify your answer.**
 
+Looking at the classifiers and regression the best classifier would be the optimized KNN. This is because the best training error rate, test error rate, sensitivity, specificity and AOC of the ROC was the best in KNN. 
